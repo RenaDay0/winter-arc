@@ -7,7 +7,7 @@ interface MonthData {
   sleep: number[]
   weight: number[]
   mood: number[]
-  goals: Record<string, any>
+  goals: Record<string, { type: string; target?: number }>
   categories?: Record<string, string>
 }
 
@@ -29,13 +29,13 @@ function StatCard({ title, value, color }: { title: string; value: string; color
   )
 }
 
-function dayDone(h: string, day: number, data: Record<string, number[]>, goals: Record<string, any>): boolean {
+function dayDone(h: string, day: number, data: Record<string, number[]>, goals: Record<string, { type: string; target?: number }>): boolean {
   const v = (data?.[h] ?? [])[day] ?? 0
   const goal = goals?.[h] ?? { type: 'boolean' }
   return goal.type === 'numeric' ? v >= (goal.target || 1) : Boolean(v)
 }
 
-function habitPct(h: string, data: Record<string, number[]>, days: number, goals: Record<string, any>): number {
+function habitPct(h: string, data: Record<string, number[]>, days: number, goals: Record<string, { type: string; target?: number }>): number {
   const goal = goals?.[h] ?? { type: 'boolean' }
   const vals = data?.[h] ?? []
   if (goal.type === 'numeric') {

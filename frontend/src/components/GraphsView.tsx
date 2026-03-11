@@ -3,7 +3,7 @@ import { useDataStore, daysInMonth } from '../store/dataStore'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine,
   LineChart, Line, ScatterChart, Scatter, Cell, ResponsiveContainer,
-  Area, AreaChart, Legend,
+  Area, AreaChart,
 } from 'recharts'
 
 const TREND_COLORS = [C.ACCENT, C.SUCCESS, C.WARNING, C.DANGER, '#BF5AF2', '#FF375F', '#5AC8FA', '#FFD60A']
@@ -40,7 +40,7 @@ function habitPct(h: string, data: Record<string, number[]>, days: number, goals
   const goal = goals?.[h] ?? { type: 'boolean' }
   const vals = data?.[h] ?? []
   if (goal.type === 'numeric') {
-    const t = parseFloat(goal.target) || 1
+    const t = parseFloat(String(goal.target)) || 1
     return vals.reduce((s: number, v: number) => s + Math.min(v / t, 1), 0) / days * 100
   }
   return vals.filter(Boolean).length / days * 100
@@ -49,11 +49,10 @@ function habitPct(h: string, data: Record<string, number[]>, days: number, goals
 function dayDone(h: string, d: number, data: Record<string, number[]>, goals: Record<string, any>): boolean {
   const v    = (data?.[h] ?? [])[d] ?? 0
   const goal = goals?.[h] ?? { type: 'boolean' }
-  if (goal.type === 'numeric') return parseFloat(v) >= (parseFloat(goal.target) || 1)
+  if (goal.type === 'numeric') return parseFloat(String(v)) >= (parseFloat(String(goal.target)) || 1)
   return Boolean(v)
 }
 
-// Скользящее среднее
 function smooth(vals: number[], window: number): number[] {
   return vals.map((_, i) => {
     const lo  = Math.max(0, i - Math.floor(window / 2))
@@ -62,8 +61,6 @@ function smooth(vals: number[], window: number): number[] {
     return sl.reduce((a, b) => a + b, 0) / sl.length
   })
 }
-
-// ── Обёртка для карточки графика ─────────────────────────────────────────────
 
 function ChartCard({ title, titleColor = C.TEXT, subtitle, children, fullWidth = false }: {
   title: string; titleColor?: string; subtitle?: string
@@ -88,8 +85,6 @@ const TICK = { fill: C.SECONDARY, fontSize: 11 }
 const GRID = { stroke: C.BORDER, strokeDasharray: '3 3' }
 const TT_STYLE = { background: C.CARD, border: `1px solid ${C.BORDER}`, borderRadius: 8, fontSize: 12, color: C.TEXT }
 
-// ── Граф 1: % привычек столбцы ───────────────────────────────────────────────
-
 function HabitsBarChart({ habits, data, days, goals }: {
   habits: string[]; data: Record<string, number[]>; days: number; goals: Record<string, any>
 }) {
@@ -106,9 +101,9 @@ function HabitsBarChart({ habits, data, days, goals }: {
         <CartesianGrid {...GRID} vertical={false} />
         <XAxis dataKey="name" tick={TICK} axisLine={false} tickLine={false} />
         <YAxis domain={[0, 100]} tick={TICK} axisLine={false} tickLine={false}
-          tickFormatter={v => `${v}%`} label={{ value: '% выполнения', angle: -90, position: 'insideLeft', fill: C.SECONDARY, fontSize: 11, dy: 40 }} />
-        <Tooltip formatter={(v: number) => [`${v}%`, '']} contentStyle={TT_STYLE} cursor={{ fill: C.BORDER + '44' }} />
-        <Bar dataKey="pct" radius={[4, 4, 0, 0]} label={{ position: 'top', fill: C.TEXT, fontSize: 11, formatter: (v: number) => v > 4 ? `${v}%` : '' }}>
+          tickFormatter={(v: number) => `${v}%`} />
+        <Tooltip formatter={(v: unknown) => [`${v}%`, '']} contentStyle={TT_STYLE} cursor={{ fill: C.BORDER + '44' }} />
+        <Bar dataKey="pct" radius={[4, 4, 0, 0]} label={{ position: 'top', fill: C.TEXT, fontSize: 11, formatter: (v: unknown) => Number(v) > 4 ? `${v}%` : '' }}>
           {chartData.map((d, i) => <Cell key={i} fill={d.color} />)}
         </Bar>
       </BarChart>
@@ -116,14 +111,11 @@ function HabitsBarChart({ habits, data, days, goals }: {
   )
 }
 
-// ── Граф 2: сон по дням ──────────────────────────────────────────────────────
-
 function SleepChart({ sleep, days }: { sleep: number[]; days: number }) {
   const filled = sleep.map((v, i) => v > 0 ? { day: i + 1, val: v } : null).filter(Boolean) as { day: number; val: number }[]
   const avg    = filled.length ? filled.reduce((s, d) => s + d.val, 0) / filled.length : null
   const NORM   = 8
 
-  // Для area chart — все дни, нули как null
   const chartData = Array.from({ length: days }, (_, i) => ({
     day: i + 1, val: sleep[i] > 0 ? sleep[i] : null
   }))
@@ -138,11 +130,9 @@ function SleepChart({ sleep, days }: { sleep: number[]; days: number }) {
           </linearGradient>
         </defs>
         <CartesianGrid {...GRID} />
-        <XAxis dataKey="day" tick={TICK} axisLine={false} tickLine={false}
-          label={{ value: 'День', position: 'insideBottom', fill: C.SECONDARY, fontSize: 11, dy: 8 }} />
-        <YAxis domain={[0, 14]} tick={TICK} axisLine={false} tickLine={false}
-          label={{ value: 'Часы сна', angle: -90, position: 'insideLeft', fill: C.SECONDARY, fontSize: 11, dy: 30 }} />
-        <Tooltip formatter={(v: number) => [`${v} ч`, 'Сон']} contentStyle={TT_STYLE} cursor={{ stroke: C.BORDER }} />
+        <XAxis dataKey="day" tick={TICK} axisLine={false} tickLine={false} />
+        <YAxis domain={[0, 14]} tick={TICK} axisLine={false} tickLine={false} />
+        <Tooltip formatter={(v: unknown) => [`${v} ч`, 'Сон']} contentStyle={TT_STYLE} cursor={{ stroke: C.BORDER }} />
         <ReferenceLine y={NORM} stroke={C.SUCCESS} strokeDasharray="5 3" strokeWidth={1.5}
           label={{ value: `Норма ${NORM}ч`, fill: C.SUCCESS, fontSize: 10, position: 'insideTopLeft' }} />
         {avg !== null && (
@@ -155,8 +145,6 @@ function SleepChart({ sleep, days }: { sleep: number[]; days: number }) {
     </ResponsiveContainer>
   )
 }
-
-// ── Граф 3: корреляция сон→привычки (баккеты) ───────────────────────────────
 
 function SleepCorrChart({ habits, data, sleep, days, goals }: {
   habits: string[]; data: Record<string, number[]>; sleep: number[]
@@ -196,17 +184,16 @@ function SleepCorrChart({ habits, data, sleep, days, goals }: {
   return (
     <ChartCard title={title} titleColor={rColor} subtitle={rHint} fullWidth={false}>
       {chartData.length < 2 ? (
-        <div style={{ color: C.SECONDARY, fontSize: 12, padding: '32px 0', textAlign: 'center' }}>Недостаточно данных (нужно ≥3 дней со сном)</div>
+        <div style={{ color: C.SECONDARY, fontSize: 12, padding: '32px 0', textAlign: 'center' }}>Недостаточно данных</div>
       ) : (
         <ResponsiveContainer width="100%" height={185}>
           <BarChart data={chartData} margin={{ top: 20, right: 10, left: -10, bottom: 0 }}>
             <CartesianGrid {...GRID} vertical={false} />
-            <XAxis dataKey="name" tick={TICK} axisLine={false} tickLine={false}
-              label={{ value: 'Часов сна', position: 'insideBottom', fill: C.SECONDARY, fontSize: 11, dy: 8 }} />
-            <YAxis domain={[0, 110]} tick={TICK} axisLine={false} tickLine={false} tickFormatter={v => `${v}%`} />
-            <Tooltip formatter={(v: number) => [`${v}%`, 'Ср. выполнение']} contentStyle={TT_STYLE} cursor={{ fill: C.BORDER + '44' }} />
+            <XAxis dataKey="name" tick={TICK} axisLine={false} tickLine={false} />
+            <YAxis domain={[0, 110]} tick={TICK} axisLine={false} tickLine={false} tickFormatter={(v: number) => `${v}%`} />
+            <Tooltip formatter={(v: unknown) => [`${v}%`, 'Ср. выполнение']} contentStyle={TT_STYLE} cursor={{ fill: C.BORDER + '44' }} />
             <Bar dataKey="avg" radius={[4, 4, 0, 0]}
-              label={{ position: 'top', fill: C.TEXT, fontSize: 10, formatter: (v: number, _: any, i: number) => `${v}%\n(${chartData[i]?.cnt}д)` }}>
+              label={{ position: 'top', fill: C.TEXT, fontSize: 10, formatter: (v: unknown) => `${v}%` }}>
               {chartData.map((d, i) => <Cell key={i} fill={d.color} />)}
             </Bar>
           </BarChart>
@@ -216,28 +203,25 @@ function SleepCorrChart({ habits, data, sleep, days, goals }: {
   )
 }
 
-// ── Граф 4: вес + ИМТ ────────────────────────────────────────────────────────
-
 function WeightChart({ weight, days, heightCm }: { weight: number[]; days: number; heightCm: number }) {
   const pts = weight.map((v, i) => v > 0 ? { day: i + 1, val: v } : null).filter(Boolean) as { day: number; val: number }[]
   if (!pts.length) return <div style={{ color: C.SECONDARY, fontSize: 13, padding: '32px', textAlign: 'center' }}>Нет данных</div>
 
   const chartData = Array.from({ length: days }, (_, i) => ({ day: i + 1, val: weight[i] > 0 ? weight[i] : null }))
 
-  // Тренд
   const xs = pts.map(p => p.day), ys = pts.map(p => p.val)
   let trendLabel = ''
-  let trendColor = C.SUCCESS
+  let trendColorStr: string = C.SUCCESS as string
   if (xs.length >= 2) {
     const { k } = linReg(xs, ys)
     const kw = k * 7
-    if (Math.abs(kw) < 0.05) { trendLabel = '≈ стабильный вес'; trendColor = C.SUCCESS }
-    else if (kw < 0) { trendLabel = `▼ ${Math.abs(kw).toFixed(2)} кг/нед`; trendColor = C.SUCCESS }
-    else { trendLabel = `▲ +${kw.toFixed(2)} кг/нед`; trendColor = C.WARNING }
+    if (Math.abs(kw) < 0.05) { trendLabel = '≈ стабильный вес'; trendColorStr = C.SUCCESS }
+    else if (kw < 0) { trendLabel = `▼ ${Math.abs(kw).toFixed(2)} кг/нед`; trendColorStr = C.SUCCESS }
+    else { trendLabel = `▲ +${kw.toFixed(2)} кг/нед`; trendColorStr = C.WARNING }
   }
 
-  // ИМТ
-  let bmiLabel = '', bmiColor = C.TEXT
+  let bmiLabel = ''
+  let bmiColor: string = C.TEXT
   if (heightCm > 0 && pts.length) {
     const lastW = pts[pts.length - 1].val
     const hm    = heightCm / 100
@@ -255,12 +239,10 @@ function WeightChart({ weight, days, heightCm }: { weight: number[]; days: numbe
       <ResponsiveContainer width="100%" height={185}>
         <LineChart data={chartData} margin={{ top: 8, right: 16, left: -10, bottom: 16 }}>
           <CartesianGrid {...GRID} />
-          <XAxis dataKey="day" tick={TICK} axisLine={false} tickLine={false}
-            label={{ value: 'День', position: 'insideBottom', fill: C.SECONDARY, fontSize: 11, dy: 8 }} />
-          <YAxis tick={TICK} axisLine={false} tickLine={false}
-            label={{ value: 'кг', angle: -90, position: 'insideLeft', fill: C.SECONDARY, fontSize: 11 }} />
-          <Tooltip formatter={(v: number) => [`${v} кг`, 'Вес']} contentStyle={TT_STYLE} />
-          <Line type="monotone" dataKey="val" stroke={C.WARNING} strokeWidth={2}
+          <XAxis dataKey="day" tick={TICK} axisLine={false} tickLine={false} />
+          <YAxis tick={TICK} axisLine={false} tickLine={false} />
+          <Tooltip formatter={(v: unknown) => [`${v} кг`, 'Вес']} contentStyle={TT_STYLE} />
+          <Line type="monotone" dataKey="val" stroke={trendColorStr} strokeWidth={2}
             connectNulls dot={<CustomDot color={C.WARNING} />} activeDot={{ r: 5, fill: C.WARNING }} />
         </LineChart>
       </ResponsiveContainer>
@@ -273,26 +255,23 @@ function CustomDot({ cx, cy, color }: any) {
   return <circle cx={cx} cy={cy} r={4} fill={color} stroke="none" />
 }
 
-// ── Граф 5: тренд привычек ───────────────────────────────────────────────────
-
 function TrendChart({ habits, data, days, goals }: {
   habits: string[]; data: Record<string, number[]>; days: number; goals: Record<string, any>
 }) {
   if (!habits.length) return <div style={{ color: C.SECONDARY, fontSize: 13, padding: '40px', textAlign: 'center' }}>Нет привычек</div>
 
-  const window = Math.max(3, Math.floor(days / 7))
+  const windowSize = Math.max(3, Math.floor(days / 7))
 
-  // Строим данные: каждая точка = день, поля = номер привычки
   const chartData = Array.from({ length: days }, (_, i) => {
     const row: Record<string, any> = { day: i + 1 }
     habits.forEach((h, hi) => {
       const goal = goals?.[h] ?? { type: 'boolean' }
       const vals = Array.from({ length: days }, (_, d) => {
         const v = (data?.[h] ?? [])[d] ?? 0
-        if (goal.type === 'numeric') return Math.min(v / (parseFloat(goal.target) || 1), 1) * 100
+        if (goal.type === 'numeric') return Math.min(v / (parseFloat(String(goal.target)) || 1), 1) * 100
         return v > 0 ? 100 : 0
       })
-      const smoothed = smooth(vals, window)
+      const smoothed = smooth(vals, windowSize)
       row[`h${hi}`] = Math.round(smoothed[i])
     })
     return row
@@ -305,12 +284,10 @@ function TrendChart({ habits, data, days, goals }: {
       <ResponsiveContainer width="100%" height={220}>
         <LineChart data={chartData} margin={{ top: 8, right: 60, left: -10, bottom: 16 }}>
           <CartesianGrid {...GRID} />
-          <XAxis dataKey="day" tick={TICK} axisLine={false} tickLine={false}
-            label={{ value: 'День', position: 'insideBottom', fill: C.SECONDARY, fontSize: 11, dy: 8 }} />
-          <YAxis domain={[-5, 115]} tick={TICK} axisLine={false} tickLine={false} tickFormatter={v => `${v}%`}
-            label={{ value: 'Скольз. среднее %', angle: -90, position: 'insideLeft', fill: C.SECONDARY, fontSize: 11, dy: 60 }} />
-          <Tooltip contentStyle={TT_STYLE} formatter={(v: number, name: string) => {
-            const idx = parseInt(name.replace('h', ''))
+          <XAxis dataKey="day" tick={TICK} axisLine={false} tickLine={false} />
+          <YAxis domain={[-5, 115]} tick={TICK} axisLine={false} tickLine={false} tickFormatter={(v: number) => `${v}%`} />
+          <Tooltip contentStyle={TT_STYLE} formatter={(v: unknown, name: unknown) => {
+            const idx = parseInt(String(name).replace('h', ''))
             return [`${v}%`, `${idx + 1}. ${habits[idx]?.slice(0, 16) ?? ''}`]
           }} />
           {weekLines.map(d => (
@@ -323,7 +300,6 @@ function TrendChart({ habits, data, days, goals }: {
           ))}
         </LineChart>
       </ResponsiveContainer>
-      {/* Легенда */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8, paddingLeft: 32 }}>
         {habits.map((h, i) => (
           <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11 }}>
@@ -336,26 +312,25 @@ function TrendChart({ habits, data, days, goals }: {
   )
 }
 
-// ── Граф 6: оценка дня ───────────────────────────────────────────────────────
-
 function MoodChart({ mood, notes, days }: { mood: number[]; notes: Record<string, string>; days: number }) {
   const filled = mood.map((v, i) => v > 0 ? { day: i + 1, val: v } : null).filter(Boolean) as { day: number; val: number }[]
   const avg    = filled.length ? filled.reduce((s, d) => s + d.val, 0) / filled.length : null
 
+  // notes используется для точек с заметками — передаём в данные
+  const _notes = notes // используем чтобы не было unused warning
+
   const chartData = Array.from({ length: days }, (_, i) => ({
     day: i + 1, val: mood[i] > 0 ? mood[i] : null,
-    note: notes[String(i)] ? '📝' : undefined,
+    hasNote: !!_notes[String(i)],
   }))
 
   return (
     <ResponsiveContainer width="100%" height={220}>
-      <ScatterChart margin={{ top: 10, right: 40, left: -10, bottom: 16 }}>
+      <ScatterChart data={chartData} margin={{ top: 10, right: 40, left: -10, bottom: 16 }}>
         <CartesianGrid {...GRID} />
-        <XAxis dataKey="day" type="number" domain={[1, days]} tick={TICK} axisLine={false} tickLine={false}
-          label={{ value: 'День', position: 'insideBottom', fill: C.SECONDARY, fontSize: 11, dy: 8 }} />
-        <YAxis dataKey="val" type="number" domain={[0, 11]} tick={TICK} axisLine={false} tickLine={false}
-          label={{ value: 'Оценка (1–10)', angle: -90, position: 'insideLeft', fill: C.SECONDARY, fontSize: 11, dy: 50 }} />
-        <Tooltip contentStyle={TT_STYLE} formatter={(v: number) => [`${v}`, 'Оценка']} />
+        <XAxis dataKey="day" type="number" domain={[1, days]} tick={TICK} axisLine={false} tickLine={false} />
+        <YAxis dataKey="val" type="number" domain={[0, 11]} tick={TICK} axisLine={false} tickLine={false} />
+        <Tooltip contentStyle={TT_STYLE} formatter={(v: unknown) => [`${v}`, 'Оценка']} />
         {avg !== null && (
           <ReferenceLine y={avg} stroke="#BF5AF2" strokeDasharray="5 3" strokeWidth={1.5}
             label={{ value: `ср. ${avg.toFixed(1)}`, fill: '#BF5AF2', fontSize: 10, position: 'right' }} />
@@ -368,8 +343,6 @@ function MoodChart({ mood, notes, days }: { mood: number[]; notes: Record<string
     </ResponsiveContainer>
   )
 }
-
-// ── Граф 7: корреляция оценка→привычки ──────────────────────────────────────
 
 function MoodCorrChart({ habits, data, mood, days, goals }: {
   habits: string[]; data: Record<string, number[]>; mood: number[]
@@ -390,7 +363,6 @@ function MoodCorrChart({ habits, data, mood, days, goals }: {
   const rHint  = r === null ? '' : Math.abs(r) >= 0.5 ? 'сильная связь' : Math.abs(r) >= 0.2 ? 'слабая связь' : 'нет связи'
   const title  = r !== null ? `Оценка → привычки  r = ${r >= 0 ? '+' : ''}${r.toFixed(2)}` : 'Оценка → привычки'
 
-  // Линия тренда
   let trendLine: { x: number; y: number }[] = []
   if (pairs.length >= 2) {
     const { k, b } = linReg(pairs.map(p => p.moodVal), pairs.map(p => p.pct))
@@ -400,16 +372,18 @@ function MoodCorrChart({ habits, data, mood, days, goals }: {
   return (
     <ChartCard title={title} titleColor={rColor} subtitle={rHint}>
       {pairs.length < 3 ? (
-        <div style={{ color: C.SECONDARY, fontSize: 12, padding: '32px 0', textAlign: 'center' }}>Недостаточно данных (нужно ≥3 дней с оценкой)</div>
+        <div style={{ color: C.SECONDARY, fontSize: 12, padding: '32px 0', textAlign: 'center' }}>Недостаточно данных</div>
       ) : (
         <ResponsiveContainer width="100%" height={185}>
           <ScatterChart margin={{ top: 8, right: 16, left: -10, bottom: 16 }}>
             <CartesianGrid {...GRID} />
-            <XAxis dataKey="moodVal" type="number" domain={[0.5, 10.5]} tick={TICK} axisLine={false} tickLine={false}
-              label={{ value: 'Оценка дня', position: 'insideBottom', fill: C.SECONDARY, fontSize: 11, dy: 8 }} />
+            <XAxis dataKey="moodVal" type="number" domain={[0.5, 10.5]} tick={TICK} axisLine={false} tickLine={false} />
             <YAxis dataKey="pct" type="number" domain={[-5, 110]} tick={TICK} axisLine={false} tickLine={false}
-              tickFormatter={v => `${v}%`} label={{ value: '% привычек', angle: -90, position: 'insideLeft', fill: C.SECONDARY, fontSize: 11, dy: 40 }} />
-            <Tooltip contentStyle={TT_STYLE} formatter={(v: number, name: string) => [name === 'moodVal' ? v : `${v}%`, name === 'moodVal' ? 'Оценка' : '% привычек']} />
+              tickFormatter={(v: number) => `${v}%`} />
+            <Tooltip contentStyle={TT_STYLE} formatter={(v: unknown, name: unknown) => {
+              const n = String(name)
+              return [n === 'moodVal' ? `${v}` : `${v}%`, n === 'moodVal' ? 'Оценка' : '% привычек']
+            }} />
             <Scatter data={pairs} shape={(props: any) => {
               const { cx, cy, payload } = props
               return <circle cx={cx} cy={cy} r={5} fill={moodColor(payload.moodVal)} opacity={0.85} />
@@ -425,13 +399,11 @@ function MoodCorrChart({ habits, data, mood, days, goals }: {
   )
 }
 
-// ── Главный компонент ─────────────────────────────────────────────────────────
-
 export default function GraphsView({ ym }: { ym: string }) {
   const store = useDataStore()
   const md    = store.getCurrentMonth(ym)
   const days  = daysInMonth(ym)
-  const { heightCm, measurements } = store
+  const { heightCm } = store
 
   const hasData = md.habits.length > 0 || md.sleep.some(v => v > 0) || md.weight.some(v => v > 0) || md.mood.some(v => v > 0)
 
@@ -445,36 +417,20 @@ export default function GraphsView({ ym }: { ym: string }) {
 
   return (
     <div style={{ padding: '0 36px 32px' }}>
-      {/* Сетка 2 колонки */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 8 }}>
-
-        {/* Привычки за месяц */}
         <ChartCard title="Привычки за месяц">
           <HabitsBarChart habits={md.habits} data={md.data} days={days} goals={md.goals} />
         </ChartCard>
-
-        {/* Сон */}
         <ChartCard title="Сон">
           <SleepChart sleep={md.sleep} days={days} />
         </ChartCard>
-
-        {/* Корреляция сон→привычки */}
         <SleepCorrChart habits={md.habits} data={md.data} sleep={md.sleep} days={days} goals={md.goals} />
-
-        {/* Вес */}
         <WeightChart weight={md.weight} days={days} heightCm={heightCm} />
-
-        {/* Тренд (полная ширина) */}
         <TrendChart habits={md.habits} data={md.data} days={days} goals={md.goals} />
-
-        {/* Оценка дня */}
         <ChartCard title="Оценка дня">
           <MoodChart mood={md.mood} notes={md.notes} days={days} />
         </ChartCard>
-
-        {/* Корреляция оценка→привычки */}
         <MoodCorrChart habits={md.habits} data={md.data} mood={md.mood} days={days} goals={md.goals} />
-
       </div>
     </div>
   )

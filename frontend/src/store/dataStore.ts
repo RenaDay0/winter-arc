@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import type { AppData, MonthData, Goal } from '../types'
 
 const STORAGE_KEY    = 'winter_arc_data'
-const SCHEMA_VERSION = 5
+export const SCHEMA_VERSION = 5
 
 // ── Утилиты ──────────────────────────────────────────────────────────────────
 

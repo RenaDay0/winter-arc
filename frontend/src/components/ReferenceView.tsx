@@ -1,7 +1,16 @@
 import { useState } from 'react'
 import { C } from '../styles/theme'
 
-// ── Данные (из reference.py) ──────────────────────────────────────────────────
+type Block = 
+  | { head?: string; type: 'text'; body: string; rows?: never; chips?: never; note?: never; items?: never }
+  | { head?: string; type: 'code'; body: string; rows?: never; chips?: never; note?: never; items?: never }
+  | { head?: string; type: 'table'; body?: never; rows: string[][]; chips?: never; note?: never; items?: never }
+  | { head?: string; type: 'scale'; body?: never; rows: { range: string; label: string; color: string }[]; chips?: never; note?: never; items?: never }
+  | { head?: string; type: 'list'; body?: never; rows?: never; chips?: never; note?: never; items: { icon: string; text: string }[] }
+  | { head?: string; type: 'chips'; body?: never; rows?: never; chips: { label: string; value: string; color: string }[]; note: string; items?: never }
+  | { head?: string; type: 'alert'; body: string; rows?: never; chips?: never; note?: never; items?: never }
+
+// ── Данные (из reference.py) ──────���───────────────────────────────────────────
 
 const SECTIONS = [
   {
@@ -162,7 +171,7 @@ const SECTIONS = [
       {
         head: 'Ежедневные цели', type: 'list' as const,
         items: [
-          { icon: '🥦', text: '5 порций (400+ г) овощей и фруктов в день' },
+          { icon: '🥦', text: '5 порций (400+ г) овощей и фрук��ов в день' },
           { icon: '🌾', text: 'Клетчатка: минимум 25–30 г/день' },
           { icon: '🍬', text: 'Сахар (ВОЗ): не более 25 г/день ≈ 6 ч.л.' },
         ],
@@ -319,7 +328,7 @@ function AlertBlock({ body }: { body: string }) {
   )
 }
 
-function SubHead({ text }: { text: string }) {
+function SubHead({ text }: { text: string | undefined }) {
   return (
     <div style={{ marginTop: 14, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
       <span style={{ color: C.TEXT, fontSize: 13, fontWeight: 600 }}>{text}</span>
@@ -358,7 +367,7 @@ function Section({ sec }: { sec: typeof SECTIONS[0] }) {
       {/* Контент */}
       {open && (
         <div style={{ padding: '14px 20px 16px' }}>
-          {sec.blocks.map((block: any, i: number) => (
+          {sec.blocks.map((block, i: number) => (
             <div key={i}>
               <SubHead text={block.head} />
               {block.type === 'text'  && <TextBlock  body={block.body} />}
