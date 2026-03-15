@@ -37,7 +37,7 @@ function Dropdown({ items, value, onPick, width = 140, label }: {
 
   useEffect(() => {
     if (!open) return
-    const h = (e: MouseEvent) => setOpen(false)
+    const h = (_e: MouseEvent) => setOpen(false)
     setTimeout(() => document.addEventListener('mousedown', h), 0)
     return () => document.removeEventListener('mousedown', h)
   }, [open])
@@ -119,6 +119,7 @@ export default function CaloriePanel({ heightCm, currentWeight, waistCm, hipCm }
   const [goal,     setGoal]     = useState(GOALS[2][0])
 
   // Load saved prefs
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => {
     try {
       const saved = JSON.parse(localStorage.getItem('calorie_prefs') || '{}')
@@ -128,7 +129,7 @@ export default function CaloriePanel({ heightCm, currentWeight, waistCm, hipCm }
       if (saved.bodyfat)  setBodyfat(saved.bodyfat)
       if (saved.activity) setActivity(saved.activity)
       if (saved.goal)     setGoal(saved.goal)
-    } catch {}
+    } catch { /* ignore */ }
   }, [])
 
   // Save prefs on change
@@ -141,7 +142,7 @@ export default function CaloriePanel({ heightCm, currentWeight, waistCm, hipCm }
   const weight  = currentWeight
   const height  = heightCm
 
-  let cards: { title: string; value: string; unit: string; color: string }[] = []
+  const cards: { title: string; value: string; unit: string; color: string }[] = []
   let hint = ''
   let computed = false
 
@@ -242,7 +243,7 @@ export default function CaloriePanel({ heightCm, currentWeight, waistCm, hipCm }
 function buildCards(
   bmr: number, tdee: number, target: number, goalDelta: number,
   weight: number, height: number, waist: number, hip: number, sex: string,
-  cards: any[]
+  cards: { title: string; value: string; unit: string; color: string }[]
 ) {
   const tColor = goalDelta < 0 ? C.SUCCESS : goalDelta > 0 ? C.WARNING : '#0A84FF'
   const protein = target * 0.30 / 4

@@ -6,6 +6,8 @@ import AddHabitDialog from './components/AddHabitDialog'
 import ReferenceView from './components/ReferenceView'
 import CaloriePanel from './components/CaloriePanel'
 import GraphsView from './components/GraphsView'
+import AuthForm from './components/AuthForm'
+import { isLoggedIn, logout } from './api'
 
 const MONTHS_SHORT = ['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек']
 const MONTHS_FULL  = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь']
@@ -111,8 +113,6 @@ function SectionLabel({ text }: { text: string }) {
 }
 function Sep() { return <div style={{ height: 1, background: C.BORDER, margin: `12px ${P}px` }} /> }
 
-// ── Факт дня ──────────────────────────────────────────────────────────────────
-
 const FALLBACK_FACTS = [
   'Осьминоги имеют три сердца и голубую кровь.',
   'Мёд не портится — в египетских гробницах находили съедобный мёд возрастом 3000 лет.',
@@ -131,7 +131,7 @@ function DailyFact() {
   const cacheKey = 'winter_arc_fact_ru'
   const seed = today.split('').reduce((a, c) => a + c.charCodeAt(0), 0)
   const getFromCache = (): string | null => {
-    try { const c = JSON.parse(localStorage.getItem(cacheKey) || '{}'); if (c.date === today && c.text) return c.text } catch {}
+    try { const c = JSON.parse(localStorage.getItem(cacheKey) || '{}'); if (c.date === today && c.text) return c.text } catch { /* ignore */ }
     return null
   }
   const [text, setText] = useState<string>(() => getFromCache() ?? ('💡 ' + FALLBACK_FACTS[seed % FALLBACK_FACTS.length]))
@@ -144,7 +144,7 @@ function DailyFact() {
       const res = await fetch(`https://ru.wikipedia.org/api/rest_v1/feed/onthisday/events/${now.getMonth()+1}/${now.getDate()}`)
       if (!res.ok) throw new Error()
       const data = await res.json()
-      const events: any[] = data.events ?? []
+      const events: { year: number; text?: string }[] = (data.events ?? []) as { year: number; text?: string }[]
       if (!events.length) throw new Error()
       const ev = events[Math.floor(Math.random() * Math.min(events.length, 10))]
       const d = String(now.getDate()).padStart(2,'0'), mo = String(now.getMonth()+1).padStart(2,'0')
@@ -165,9 +165,17 @@ function DailyFact() {
   )
 }
 
-// ── App ───────────────────────────────────────────────────────────────────────
-
 export default function App() {
+  const [authed, setAuthed] = useState(isLoggedIn())
+
+  if (!authed) {
+    return <AuthForm onSuccess={() => setAuthed(true)} />
+  }
+
+  return <MainApp onLogout={() => setAuthed(false)} />
+}
+
+function MainApp({ onLogout }: { onLogout: () => void }) {
   const store = useDataStore()
   const { currentYear, currentMonth, setMonth, allMonths, heightCm, setHeight, measurements, setMeasurement } = store
 
@@ -228,7 +236,7 @@ export default function App() {
   const prevMd = allMonths[prevYm]
   const compareText = (() => {
     if (!prevMd) return { text: `Сравнение с ${monthLabel(prevYm)}: нет данных`, color: C.SECONDARY }
-    const calc = (habits: string[], data: Record<string, number[]>, days: number, goals: Record<string, any>) => {
+    const calc = (habits: string[], data: Record<string, number[]>, days: number, goals: Record<string, { type: string; target?: number }>) => {
       if (!habits.length || !days) return 0
       let total = 0
       for (const h of habits) {
@@ -261,9 +269,9 @@ export default function App() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
           
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-  <img src="/winterarc.ico" style={{ width: 58, height: 58 }} />
-  <span style={{ fontSize: 22, fontWeight: 700, color: C.TEXT }}>Winter Arc</span>
-</div>
+            <img src="/winterarc.ico" style={{ width: 58, height: 58 }} />
+            <span style={{ fontSize: 22, fontWeight: 700, color: C.TEXT }}>Winter Arc</span>
+          </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             {view !== 'table'
               ? <BackBtn onClick={() => setView('table')} />
@@ -275,6 +283,7 @@ export default function App() {
                   <RoundBtn onClick={() => setView('reference')} width={128}>📖 Справочник</RoundBtn>
                   <RoundBtn onClick={() => setView('graphs')} width={118}>📊 Графики</RoundBtn>
                   <RoundBtn onClick={() => setShowAdd(true)} width={128}>+ Привычка</RoundBtn>
+                  <RoundBtn onClick={() => { logout(); onLogout() }} width={90}>Выйти</RoundBtn>
                 </>
             }
           </div>
