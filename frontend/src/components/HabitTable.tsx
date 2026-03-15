@@ -2,6 +2,16 @@ import { useState } from 'react'
 import { C } from '../styles/theme'
 import { useDataStore, daysInMonth } from '../store/dataStore'
 
+const CAT_COLORS: Record<string, string> = {
+  'Здоровье': '#30D158',
+  'Спорт': '#FF9F0A',
+  'Саморазвитие': '#BF5AF2',
+  'Питание': '#FF453A',
+  'Сон': '#0A84FF',
+  'Продуктивность': '#0A84FF',
+  'Другое': '#636366',
+}
+
 function isToday(year: number, month: number, day: number): boolean {
   const now = new Date()
   return now.getFullYear() === year && now.getMonth() + 1 === month && now.getDate() === day
@@ -23,8 +33,6 @@ const noSpinnerStyle = `
   input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
   input[type=number] { -moz-appearance: textfield; }
 `
-
-// ── Ячейки ────────────────────────────────────────────────────────────────────
 
 function SleepCell({ value, onChange }: { value: number; onChange: (v: number) => void }) {
   const [editing, setEditing] = useState(false)
@@ -165,8 +173,6 @@ function ToggleCell({ done, onClick }: { done: boolean; onClick: () => void }) {
   )
 }
 
-// ── Главный компонент ─────────────────────────────────────────────────────────
-
 export default function HabitTable({ ym }: { ym: string }) {
   const store = useDataStore()
   const { toggleHabit, setSleep, setWeight, setMood, deleteHabit } = store
@@ -207,7 +213,6 @@ export default function HabitTable({ ym }: { ym: string }) {
   const tdBase: React.CSSProperties = { borderBottom: `1px solid ${C.BORDER}`, textAlign: 'center', padding: '2px 1px' }
   const stickyLeft: React.CSSProperties = { position: 'sticky', left: 0, zIndex: 2 }
 
-  // Выделение сегодняшнего дня — рамка без фона
   const TODAY_BORDER_C = 'rgba(255,255,255,0.32)'
   const TODAY_TEXT     = '#FFFFFF'
 
@@ -249,7 +254,6 @@ export default function HabitTable({ ym }: { ym: string }) {
         </thead>
 
         <tbody>
-          {/* Сон */}
           <tr>
             <td style={{ ...stickyLeft, background: C.BG2, ...tdBase, padding: '5px 14px' }}>
               <span style={{ color: C.ACCENT, fontWeight: 600, fontSize: 14 }}>😴 Сон</span>
@@ -266,7 +270,6 @@ export default function HabitTable({ ym }: { ym: string }) {
             })}
           </tr>
 
-          {/* Вес */}
           <tr>
             <td style={{ ...stickyLeft, background: C.BG2, ...tdBase, padding: '5px 14px' }}>
               <span style={{ color: C.SUCCESS, fontWeight: 600, fontSize: 14 }}>⚖️ Вес(кг)</span>
@@ -283,7 +286,6 @@ export default function HabitTable({ ym }: { ym: string }) {
             })}
           </tr>
 
-          {/* Оценка дня */}
           <tr>
             <td style={{ ...stickyLeft, background: C.BG2, ...tdBase, padding: '5px 14px' }}>
               <span style={{ color: '#BF5AF2', fontWeight: 600, fontSize: 14 }}>⭐ День</span>
@@ -309,7 +311,6 @@ export default function HabitTable({ ym }: { ym: string }) {
 
           <tr><td colSpan={days + 1} style={{ height: 6, background: C.BG }} /></tr>
 
-          {/* Привычки */}
           {md.habits.length === 0 ? (
             <tr>
               <td colSpan={days + 1} style={{ padding: '40px 0', textAlign: 'center', color: C.SECONDARY, fontSize: 14 }}>
@@ -318,7 +319,7 @@ export default function HabitTable({ ym }: { ym: string }) {
             </tr>
           ) : (
             catOrder.flatMap(cat => {
-              const catColor = C.CATEGORIES[cat] ?? C.SECONDARY
+              const catColor = CAT_COLORS[cat] ?? C.SECONDARY
               return [
                 <tr key={`sep-${cat}`}>
                   <td colSpan={days + 1} style={{ background: C.BG, padding: '3px 14px', borderBottom: `1px solid ${C.BORDER}` }}>
@@ -376,7 +377,6 @@ export default function HabitTable({ ym }: { ym: string }) {
             })
           )}
 
-          {/* Итого */}
           {md.habits.length > 0 && (
             <tr>
               <td style={{ ...stickyLeft, background: C.BG2, ...tdBase, padding: '5px 14px' }}>
