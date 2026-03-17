@@ -36,12 +36,16 @@ const noSpinnerStyle = `
 
 function SleepCell({ value, onChange }: { value: number; onChange: (v: number) => void }) {
   const [editing, setEditing] = useState(false)
+  const [local, setLocal] = useState('')
+  const handleOpen = () => { setLocal(value > 0 ? String(value) : ''); setEditing(true) }
+  const handleSave = (val: string) => { const n = parseFloat(val); onChange(isNaN(n) ? 0 : n); setEditing(false) }
   if (editing) return (
     <input autoFocus type="number" min={0} max={24} step={0.5}
-      defaultValue={value || ''}
-      onBlur={e  => { onChange(parseFloat(e.target.value) || 0); setEditing(false) }}
+      value={local}
+      onChange={e => setLocal(e.target.value)}
+      onBlur={e => handleSave(e.target.value)}
       onKeyDown={e => {
-        if (e.key === 'Enter')  { onChange(parseFloat((e.target as HTMLInputElement).value) || 0); setEditing(false) }
+        if (e.key === 'Enter')  handleSave((e.target as HTMLInputElement).value)
         if (e.key === 'Escape') setEditing(false)
       }}
       style={{ width: CELL - 4, height: 34, background: C.BG, border: `1.5px solid ${C.ACCENT}`,
@@ -50,7 +54,7 @@ function SleepCell({ value, onChange }: { value: number; onChange: (v: number) =
   const bg    = value >= 7 ? C.SUCCESS : value > 0 ? C.WARNING : C.CARD
   const color = value >= 7 ? C.SUCCESS : value > 0 ? C.WARNING : C.SECONDARY
   return (
-    <div onClick={() => setEditing(true)} style={{
+    <div onClick={handleOpen} style={{
       width: CELL - 4, height: 34, margin: '0 auto', borderRadius: 6,
       background: value > 0 ? bg + '33' : C.CARD, border: `1px solid ${value > 0 ? bg : C.BORDER}`,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -63,19 +67,23 @@ function SleepCell({ value, onChange }: { value: number; onChange: (v: number) =
 
 function WeightCell({ value, onChange }: { value: number; onChange: (v: number) => void }) {
   const [editing, setEditing] = useState(false)
+  const [local, setLocal] = useState('')
+  const handleOpen = () => { setLocal(value > 0 ? String(value) : ''); setEditing(true) }
+  const handleSave = (val: string) => { const n = parseFloat(val); onChange(isNaN(n) ? 0 : n); setEditing(false) }
   if (editing) return (
     <input autoFocus type="number" min={0} step={0.1}
-      defaultValue={value || ''}
-      onBlur={e  => { onChange(parseFloat(e.target.value) || 0); setEditing(false) }}
+      value={local}
+      onChange={e => setLocal(e.target.value)}
+      onBlur={e => handleSave(e.target.value)}
       onKeyDown={e => {
-        if (e.key === 'Enter')  { onChange(parseFloat((e.target as HTMLInputElement).value) || 0); setEditing(false) }
+        if (e.key === 'Enter')  handleSave((e.target as HTMLInputElement).value)
         if (e.key === 'Escape') setEditing(false)
       }}
       style={{ width: CELL - 4, height: 34, background: C.BG, border: `1.5px solid ${C.ACCENT}`,
         borderRadius: 6, color: C.TEXT, fontSize: 12, textAlign: 'center', outline: 'none', padding: 0 }} />
   )
   return (
-    <div onClick={() => setEditing(true)} style={{
+    <div onClick={handleOpen} style={{
       width: CELL - 4, height: 34, margin: '0 auto', borderRadius: 6,
       background: value > 0 ? C.SUCCESS + '33' : C.CARD, border: `1px solid ${value > 0 ? C.SUCCESS : C.BORDER}`,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
