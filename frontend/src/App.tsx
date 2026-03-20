@@ -211,9 +211,10 @@ function MainApp({ onLogout }: { onLogout: () => void }) {
   const yearOptions = Array.from({length: 7}, (_, i) => String(now.getFullYear() + 1 - i))
 
   useEffect(() => {
-    const id = setInterval(() => store.saveData(), 3 * 60 * 1000)
-    return () => clearInterval(id)
-  }, [store])
+  store.loadFromServer()
+  const id = setInterval(() => store.saveData(), 3 * 60 * 1000)
+  return () => clearInterval(id)
+}, [])
 
   const saveMeasurement = () => {
     const waist = parseFloat(waistStr.replace(',', '.')) || 0
