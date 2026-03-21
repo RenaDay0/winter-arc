@@ -2,6 +2,17 @@ const API = 'https://winter-arc-production-760f.up.railway.app'
 
 const DATA_KEY = 'winter_arc_data'
 
+// Все ключи которые принадлежат конкретному пользователю
+const USER_KEYS = [
+  DATA_KEY,
+  'calorie_prefs',
+  'winter_arc_fact_ru',
+]
+
+function clearUserData() {
+  USER_KEYS.forEach(key => localStorage.removeItem(key))
+}
+
 function getToken() {
   return localStorage.getItem('token')
 }
@@ -12,7 +23,7 @@ export function isLoggedIn() {
 
 export function logout() {
   localStorage.removeItem('token')
-  localStorage.removeItem(DATA_KEY)
+  clearUserData()
   window.location.reload()
 }
 
@@ -24,7 +35,7 @@ export async function register(email: string, username: string, password: string
   })
   const data = await res.json()
   if (!res.ok) throw new Error(data.detail || 'Ошибка регистрации')
-  localStorage.removeItem(DATA_KEY)
+  clearUserData()
   localStorage.setItem('token', data.access_token)
 }
 
@@ -36,26 +47,35 @@ export async function login(email: string, password: string) {
   })
   const data = await res.json()
   if (!res.ok) throw new Error(data.detail || 'Ошибка входа')
-  localStorage.removeItem(DATA_KEY)
+  clearUserData()
   localStorage.setItem('token', data.access_token)
 }
 
 export async function loadData() {
+  const token = getToken()
+  if (!token) return null
   const res = await fetch(`${API}/api/data/`, {
-    headers: { 'Authorization': `Bearer ${getToken()}` },
+    headers: { 'Authorization': `Bearer ${token}` },
   })
   if (!res.ok) return null
   const data = await res.json()
-  return data.payload
+  return data.payload ?? null
 }
 
-export async function saveData(payload: string) {
-  await fetch(`${API}/api/data/`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${getToken()}`,
-    },
-    body: JSON.stringify({ payload }),
-  })
+export async function saveData(payload: string): Promise<boolean> {
+  const token = getToken()
+  if (!token) return false
+  try {
+    const res = await fetch(`${API}/api/data/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ payload }),
+    })
+    return res.ok
+  } catch {
+    return false
+  }
 }
