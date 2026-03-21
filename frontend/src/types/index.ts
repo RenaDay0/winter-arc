@@ -19,9 +19,19 @@ export interface MonthData {
   goals: Record<string, Goal>
 }
 
+export interface CaloriePrefs {
+  formula?: string
+  age?: string
+  sex?: string
+  bodyfat?: string
+  activity?: string
+  goal?: string
+}
+
 export interface AppData {
   months: Record<string, MonthData>
   schema_version: number
+  caloriePrefs?: CaloriePrefs
 }
 
 export type View = 'table' | 'graphs' | 'stats' | 'settings'

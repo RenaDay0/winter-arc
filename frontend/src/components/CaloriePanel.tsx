@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useEffect } from 'react'
+import { useState } from 'react'
 import { C } from '../styles/theme'
-
-// ── Константы (из calorie.py) ────────────────────────────��────────────────────
+import { useDataStore } from '../store/dataStore'
 
 const ACTIVITY_LEVELS: [string, number][] = [
   ['Сидячий (офис, мало движения)',       1.2],
@@ -24,14 +24,8 @@ const SEXES    = ['Мужской', 'Женский']
 const FORMULAS = ['Миффлин–Сан Жеора', 'Кетч–МакАрдл (% жира)']
 const BODYFAT  = Array.from({length: 46}, (_, i) => String(i + 5))
 
-// ── Dropdown ──────────────────────────────────────────────────────────────────
-
 function Dropdown({ items, value, onPick, width = 140, label }: {
-  items: string[]
-  value: string
-  onPick: (v: string) => void
-  width?: number
-  label?: string
+  items: string[]; value: string; onPick: (v: string) => void; width?: number; label?: string
 }) {
   const [open, setOpen] = useState(false)
 
@@ -42,48 +36,39 @@ function Dropdown({ items, value, onPick, width = 140, label }: {
     return () => document.removeEventListener('mousedown', h)
   }, [open])
 
-  const display = label ?? value
-
   return (
     <div style={{ position: 'relative', display: 'inline-block' }} onMouseDown={e => e.stopPropagation()}>
       <button onClick={() => setOpen(o => !o)} style={{
         background: C.CARD, border: 'none', color: C.TEXT,
         borderRadius: 9, padding: '0 14px', cursor: 'pointer',
         fontSize: 13, fontFamily: 'inherit', height: 32,
-        minWidth: width, textAlign: 'left', whiteSpace: 'nowrap', overflow: 'hidden',
-        textOverflow: 'ellipsis',
+        minWidth: width, textAlign: 'left', whiteSpace: 'nowrap',
+        overflow: 'hidden', textOverflow: 'ellipsis',
       }}>
-        {display}
+        {label ?? value}
       </button>
       {open && (
         <div style={{
           position: 'absolute', top: '100%', left: 0, zIndex: 200,
           background: C.CARD, border: `1px solid ${C.BORDER}`,
           borderRadius: 8, overflow: 'auto', maxHeight: 260,
-          minWidth: Math.max(width, 160), boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
-          marginTop: 2,
+          minWidth: Math.max(width, 160), boxShadow: '0 8px 24px rgba(0,0,0,0.5)', marginTop: 2,
         }}>
           {items.map(item => (
-            <div key={item}
-              onClick={() => { onPick(item); setOpen(false) }}
-              style={{
-                padding: '8px 14px', cursor: 'pointer', fontSize: 13,
-                background: item === value ? C.ACCENT : 'transparent',
-                color: item === value ? '#fff' : C.TEXT, whiteSpace: 'nowrap',
-              }}
+            <div key={item} onClick={() => { onPick(item); setOpen(false) }} style={{
+              padding: '8px 14px', cursor: 'pointer', fontSize: 13,
+              background: item === value ? C.ACCENT : 'transparent',
+              color: item === value ? '#fff' : C.TEXT, whiteSpace: 'nowrap',
+            }}
               onMouseEnter={e => { if (item !== value) (e.currentTarget as HTMLDivElement).style.background = C.BORDER }}
               onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = item === value ? C.ACCENT : 'transparent' }}
-            >
-              {item}
-            </div>
+            >{item}</div>
           ))}
         </div>
       )}
     </div>
   )
 }
-
-// ── Rounded card ──────────────────────────────────────────────────────────────
 
 function RoundedCard({ title, value, unit, color }: {
   title: string; value: string; unit: string; color: string
@@ -101,8 +86,6 @@ function RoundedCard({ title, value, unit, color }: {
   )
 }
 
-// ── CaloriePanel ──────────────────────────────────────────────────────────────
-
 interface Props {
   heightCm: number
   currentWeight: number
@@ -111,33 +94,18 @@ interface Props {
 }
 
 export default function CaloriePanel({ heightCm, currentWeight, waistCm, hipCm }: Props) {
-  const [formula,  setFormula]  = useState(FORMULAS[0])
-  const [age,      setAge]      = useState('')
-  const [sex,      setSex]      = useState('Мужской')
-  const [bodyfat,  setBodyfat]  = useState('')
-  const [activity, setActivity] = useState(ACTIVITY_LEVELS[2][0])
-  const [goal,     setGoal]     = useState(GOALS[2][0])
+  const { caloriePrefs, setCaloriePrefs } = useDataStore()
 
-  // Load saved prefs
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem('calorie_prefs') || '{}')
-      if (saved.formula)  setFormula(saved.formula)
-      if (saved.age)      setAge(saved.age)
-      if (saved.sex)      setSex(saved.sex)
-      if (saved.bodyfat)  setBodyfat(saved.bodyfat)
-      if (saved.activity) setActivity(saved.activity)
-      if (saved.goal)     setGoal(saved.goal)
-    } catch { /* ignore */ }
-  }, [])
+  // Берём значения из стора (синхронизируются с сервером)
+  const formula  = caloriePrefs.formula  ?? FORMULAS[0]
+  const age      = caloriePrefs.age      ?? ''
+  const sex      = caloriePrefs.sex      ?? 'Мужской'
+  const bodyfat  = caloriePrefs.bodyfat  ?? ''
+  const activity = caloriePrefs.activity ?? ACTIVITY_LEVELS[2][0]
+  const goal     = caloriePrefs.goal     ?? GOALS[2][0]
 
-  // Save prefs on change
-  useEffect(() => {
-    localStorage.setItem('calorie_prefs', JSON.stringify({ formula, age, sex, bodyfat, activity, goal }))
-  }, [formula, age, sex, bodyfat, activity, goal])
+  const set = (key: string, val: string) => setCaloriePrefs({ [key]: val })
 
-  // Compute
   const isKatch = formula === FORMULAS[1]
   const weight  = currentWeight
   const height  = heightCm
@@ -197,42 +165,33 @@ export default function CaloriePanel({ heightCm, currentWeight, waistCm, hipCm }
     <div style={{ fontFamily: 'inherit' }}>
       <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 10 }}>⚡ Калораж</div>
 
-      {/* Карточки — сверху */}
       {computed && (
         <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 12 }}>
-          {cards.map((c, i) => (
-            <RoundedCard key={i} {...c} />
-          ))}
+          {cards.map((c, i) => <RoundedCard key={i} {...c} />)}
         </div>
       )}
 
-      {/* Строка 1: формула, возраст, пол */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 8 }}>
         <span style={{ color: C.SECONDARY, fontSize: 13 }}>Формула:</span>
-        <Dropdown items={FORMULAS} value={formula} onPick={setFormula} width={220} />
-
+        <Dropdown items={FORMULAS} value={formula} onPick={v => set('formula', v)} width={220} />
         <span style={{ color: C.SECONDARY, fontSize: 13 }}>Возраст:</span>
-        <Dropdown items={AGES} value={age || '—'} onPick={setAge} width={60} label={age || '—'} />
-
+        <Dropdown items={AGES} value={age || '—'} onPick={v => set('age', v)} width={60} label={age || '—'} />
         <span style={{ color: C.SECONDARY, fontSize: 13 }}>Пол:</span>
-        <Dropdown items={SEXES} value={sex} onPick={setSex} width={90} />
-
+        <Dropdown items={SEXES} value={sex} onPick={v => set('sex', v)} width={90} />
         {isKatch && (
           <>
             <span style={{ color: C.SECONDARY, fontSize: 13 }}>% жира:</span>
-            <Dropdown items={BODYFAT} value={bodyfat || '—'} onPick={setBodyfat} width={65} label={bodyfat ? `${bodyfat}%` : '—'} />
+            <Dropdown items={BODYFAT} value={bodyfat || '—'} onPick={v => set('bodyfat', v)} width={65} label={bodyfat ? `${bodyfat}%` : '—'} />
             <span style={{ color: C.SECONDARY, fontSize: 12 }}>(нужен для формулы Кетча)</span>
           </>
         )}
       </div>
 
-      {/* Строка 2: активность, цель */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 8 }}>
         <span style={{ color: C.SECONDARY, fontSize: 13 }}>Активность:</span>
-        <Dropdown items={ACTIVITY_LEVELS.map(a => a[0])} value={activity} onPick={setActivity} width={250} label={actShort} />
-
+        <Dropdown items={ACTIVITY_LEVELS.map(a => a[0])} value={activity} onPick={v => set('activity', v)} width={250} label={actShort} />
         <span style={{ color: C.SECONDARY, fontSize: 13 }}>Цель:</span>
-        <Dropdown items={GOALS.map(g => g[0])} value={goal} onPick={setGoal} width={200} />
+        <Dropdown items={GOALS.map(g => g[0])} value={goal} onPick={v => set('goal', v)} width={200} />
       </div>
 
       <div style={{ color: C.SECONDARY, fontSize: 13 }}>{hint}</div>
@@ -245,12 +204,11 @@ function buildCards(
   weight: number, height: number, waist: number, hip: number, sex: string,
   cards: { title: string; value: string; unit: string; color: string }[]
 ) {
-  const tColor = goalDelta < 0 ? C.SUCCESS : goalDelta > 0 ? C.WARNING : '#0A84FF'
+  const tColor  = goalDelta < 0 ? C.SUCCESS : goalDelta > 0 ? C.WARNING : '#0A84FF'
   const protein = target * 0.30 / 4
   const fat     = target * 0.30 / 9
   const carbs   = target * 0.40 / 4
-  const actFactor = 1.55 // approx, used for water
-  const waterL  = (weight * 35 + (actFactor >= 1.725 ? 500 : 0)) / 1000
+  const waterL  = (weight * 35) / 1000
 
   cards.push(
     { title: 'BMR',      value: bmr.toFixed(0),     unit: 'ккал/день в покое', color: '#8E8E93' },
