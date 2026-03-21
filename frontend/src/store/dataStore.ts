@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { AppData, MonthData, Goal } from '../types'
+import { loadData, saveData, isLoggedIn } from '../api'
 
 const STORAGE_KEY    = 'winter_arc_data'
 export const SCHEMA_VERSION = 5
@@ -31,20 +32,12 @@ export function monthKey(year: number, month: number): string {
 
 function createEmptyMonth(ym: string): MonthData {
   const d = daysInMonth(ym)
-  if (d < 1 || d > 31) {
-    return {
-      habits: [], data: {},
-      sleep:  Array(30).fill(0) as number[],
-      weight: Array(30).fill(0) as number[],
-      mood:   Array(30).fill(0) as number[],
-      notes: {}, log: {}, icons: {}, categories: {}, goals: {},
-    }
-  }
+  const safeDays = d >= 1 && d <= 31 ? d : 30
   return {
     habits: [], data: {},
-    sleep:  Array(d).fill(0) as number[],
-    weight: Array(d).fill(0) as number[],
-    mood:   Array(d).fill(0) as number[],
+    sleep:  Array(safeDays).fill(0) as number[],
+    weight: Array(safeDays).fill(0) as number[],
+    mood:   Array(safeDays).fill(0) as number[],
     notes: {}, log: {}, icons: {}, categories: {}, goals: {},
   }
 }
@@ -113,6 +106,17 @@ function persist(data: AppData, heightCm: number, measurements: Record<string, {
   }))
 }
 
+// Debounce для отправки на сервер
+let syncTimer: ReturnType<typeof setTimeout> | null = null
+function scheduleSync(data: AppData, heightCm: number, measurements: Record<string, { waist: number; hip: number }>) {
+  if (!isLoggedIn()) return
+  if (syncTimer) clearTimeout(syncTimer)
+  syncTimer = setTimeout(() => {
+    const payload = JSON.stringify({ schema_version: SCHEMA_VERSION, months: data.months, heightCm, measurements })
+    saveData(payload).catch(() => { /* тихая ошибка */ })
+  }, 2000)
+}
+
 // ── Типы ──────────────────────────────────────────────────────────────────────
 
 interface DataStore {
@@ -122,13 +126,15 @@ interface DataStore {
   heightCm:     number
   measurements: Record<string, { waist: number; hip: number }>
   allMonths:    Record<string, MonthData>
+  syncing:      boolean
 
-  setMonth:       (year: number, month: number) => void
-  ensureMonth:    (ym: string) => void
-  saveData:       () => void
-  getCurrentMonth:(ym: string) => MonthData
-  setHeight:      (cm: number) => void
-  setMeasurement: (weekKey: string, waist: number, hip: number) => void
+  setMonth:        (year: number, month: number) => void
+  ensureMonth:     (ym: string) => void
+  saveData:        () => void
+  getCurrentMonth: (ym: string) => MonthData
+  setHeight:       (cm: number) => void
+  setMeasurement:  (weekKey: string, waist: number, hip: number) => void
+  loadFromServer:  () => Promise<void>
 
   addHabit:    (name: string, icon: string, category: string, goal: Goal) => void
   deleteHabit: (name: string, ym: string) => void
@@ -153,6 +159,27 @@ export const useDataStore = create<DataStore>((set, get) => ({
   heightCm:     stored.heightCm ?? 0,
   measurements: stored.measurements ?? {},
   allMonths:    initData.months,
+  syncing:      false,
+
+  loadFromServer: async () => {
+    if (!isLoggedIn()) return
+    set({ syncing: true })
+    try {
+      const payload = await loadData()
+      if (!payload || payload === '{}') return
+      const remote = migrate(JSON.parse(payload) as StorageRoot)
+      const newData: AppData = { months: remote.months ?? {}, schema_version: SCHEMA_VERSION }
+      persist(newData, remote.heightCm ?? 0, remote.measurements ?? {})
+      set({
+        data: newData,
+        allMonths: newData.months,
+        heightCm: remote.heightCm ?? 0,
+        measurements: remote.measurements ?? {},
+      })
+    } catch { /* тихая ошибка */ } finally {
+      set({ syncing: false })
+    }
+  },
 
   setMonth: (year, month) => {
     set({ currentYear: year, currentMonth: month })
@@ -167,6 +194,7 @@ export const useDataStore = create<DataStore>((set, get) => ({
         months: { ...state.data.months, [ym]: createEmptyMonth(ym) },
       }
       persist(newData, state.heightCm, state.measurements)
+      scheduleSync(newData, state.heightCm, state.measurements)
       return { data: newData, allMonths: newData.months }
     })
   },
@@ -174,6 +202,7 @@ export const useDataStore = create<DataStore>((set, get) => ({
   saveData: () => {
     const s = get()
     persist(s.data, s.heightCm, s.measurements)
+    scheduleSync(s.data, s.heightCm, s.measurements)
   },
 
   getCurrentMonth: (ym) => {
@@ -184,6 +213,7 @@ export const useDataStore = create<DataStore>((set, get) => ({
   setHeight: (cm) => {
     set(state => {
       persist(state.data, cm, state.measurements)
+      scheduleSync(state.data, cm, state.measurements)
       return { heightCm: cm }
     })
   },
@@ -192,6 +222,7 @@ export const useDataStore = create<DataStore>((set, get) => ({
     set(state => {
       const measurements = { ...state.measurements, [weekKey]: { waist, hip } }
       persist(state.data, state.heightCm, measurements)
+      scheduleSync(state.data, state.heightCm, measurements)
       return { measurements }
     })
   },
@@ -213,6 +244,7 @@ export const useDataStore = create<DataStore>((set, get) => ({
       }
       const newData: AppData = { ...state.data, months: { ...state.data.months, [ym]: updated } }
       persist(newData, state.heightCm, state.measurements)
+      scheduleSync(newData, state.heightCm, state.measurements)
       return { data: newData, allMonths: newData.months }
     })
   },
@@ -231,6 +263,7 @@ export const useDataStore = create<DataStore>((set, get) => ({
       }
       const newData: AppData = { ...state.data, months: { ...state.data.months, [ym]: updated } }
       persist(newData, state.heightCm, state.measurements)
+      scheduleSync(newData, state.heightCm, state.measurements)
       return { data: newData, allMonths: newData.months }
     })
   },
@@ -245,6 +278,7 @@ export const useDataStore = create<DataStore>((set, get) => ({
         months: { ...state.data.months, [ym]: { ...month, data: { ...month.data, [habit]: vals } } },
       }
       persist(newData, state.heightCm, state.measurements)
+      scheduleSync(newData, state.heightCm, state.measurements)
       return { data: newData, allMonths: newData.months }
     })
   },
@@ -256,6 +290,7 @@ export const useDataStore = create<DataStore>((set, get) => ({
       const sleep = [...month.sleep]; sleep[day] = value
       const newData: AppData = { ...state.data, months: { ...state.data.months, [ym]: { ...month, sleep } } }
       persist(newData, state.heightCm, state.measurements)
+      scheduleSync(newData, state.heightCm, state.measurements)
       return { data: newData, allMonths: newData.months }
     })
   },
@@ -267,6 +302,7 @@ export const useDataStore = create<DataStore>((set, get) => ({
       const weight = [...month.weight]; weight[day] = value
       const newData: AppData = { ...state.data, months: { ...state.data.months, [ym]: { ...month, weight } } }
       persist(newData, state.heightCm, state.measurements)
+      scheduleSync(newData, state.heightCm, state.measurements)
       return { data: newData, allMonths: newData.months }
     })
   },
@@ -279,6 +315,7 @@ export const useDataStore = create<DataStore>((set, get) => ({
       const notes = { ...month.notes, [String(day)]: note }
       const newData: AppData = { ...state.data, months: { ...state.data.months, [ym]: { ...month, mood, notes } } }
       persist(newData, state.heightCm, state.measurements)
+      scheduleSync(newData, state.heightCm, state.measurements)
       return { data: newData, allMonths: newData.months }
     })
   },

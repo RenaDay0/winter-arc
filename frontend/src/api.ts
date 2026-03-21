@@ -1,5 +1,7 @@
 const API = 'https://winter-arc-production-760f.up.railway.app'
 
+const DATA_KEY = 'winter_arc_data'
+
 function getToken() {
   return localStorage.getItem('token')
 }
@@ -10,6 +12,7 @@ export function isLoggedIn() {
 
 export function logout() {
   localStorage.removeItem('token')
+  localStorage.removeItem(DATA_KEY)
   window.location.reload()
 }
 
@@ -21,6 +24,7 @@ export async function register(email: string, username: string, password: string
   })
   const data = await res.json()
   if (!res.ok) throw new Error(data.detail || 'Ошибка регистрации')
+  localStorage.removeItem(DATA_KEY)
   localStorage.setItem('token', data.access_token)
 }
 
@@ -32,6 +36,7 @@ export async function login(email: string, password: string) {
   })
   const data = await res.json()
   if (!res.ok) throw new Error(data.detail || 'Ошибка входа')
+  localStorage.removeItem(DATA_KEY)
   localStorage.setItem('token', data.access_token)
 }
 
