@@ -2,10 +2,8 @@ import { create } from 'zustand'
 import type { AppData, MonthData, Goal } from '../types'
 import { loadData, saveData, isLoggedIn } from '../api'
 
-const STORAGE_KEY    = 'winter_arc_data'
+const STORAGE_KEY = 'winter_arc_data'
 export const SCHEMA_VERSION = 5
-
-// ── Утилиты ──────────────────────────────────────────────────────────────────
 
 export function daysInMonth(ymOrYear: string | number, month?: number): number {
   try {
@@ -21,9 +19,7 @@ export function daysInMonth(ymOrYear: string | number, month?: number): number {
       return new Date(ymOrYear as number, month, 0).getDate()
     }
     return 30
-  } catch {
-    return 30
-  }
+  } catch { return 30 }
 }
 
 export function monthKey(year: number, month: number): string {
@@ -32,12 +28,12 @@ export function monthKey(year: number, month: number): string {
 
 function createEmptyMonth(ym: string): MonthData {
   const d = daysInMonth(ym)
-  const safeDays = d >= 1 && d <= 31 ? d : 30
+  const n = d >= 1 && d <= 31 ? d : 30
   return {
     habits: [], data: {},
-    sleep:  Array(safeDays).fill(0) as number[],
-    weight: Array(safeDays).fill(0) as number[],
-    mood:   Array(safeDays).fill(0) as number[],
+    sleep:  Array(n).fill(0) as number[],
+    weight: Array(n).fill(0) as number[],
+    mood:   Array(n).fill(0) as number[],
     notes: {}, log: {}, icons: {}, categories: {}, goals: {},
   }
 }
@@ -49,24 +45,22 @@ function padArray<T>(arr: T[], length: number, fill: T): T[] {
 
 function normalizeMonth(md: MonthData, ym: string): MonthData {
   const d = daysInMonth(ym)
-  const safeDays = d >= 1 && d <= 31 ? d : 30
+  const n = d >= 1 && d <= 31 ? d : 30
   return {
     ...md,
-    sleep:      padArray(md.sleep  ?? [], safeDays, 0),
-    weight:     padArray(md.weight ?? [], safeDays, 0),
-    mood:       padArray(md.mood   ?? [], safeDays, 0),
+    sleep:      padArray(md.sleep  ?? [], n, 0),
+    weight:     padArray(md.weight ?? [], n, 0),
+    mood:       padArray(md.mood   ?? [], n, 0),
     notes:      md.notes      ?? {},
     log:        md.log        ?? {},
     icons:      md.icons      ?? {},
     categories: md.categories ?? {},
     goals:      md.goals      ?? {},
     data: Object.fromEntries(
-      (md.habits ?? []).map(h => [h, padArray(md.data?.[h] ?? [], safeDays, 0)])
+      (md.habits ?? []).map(h => [h, padArray(md.data?.[h] ?? [], n, 0)])
     ),
   }
 }
-
-// ── Хранилище ─────────────────────────────────────────────────────────────────
 
 interface StorageRoot {
   schema_version?: number
@@ -80,8 +74,8 @@ function migrate(raw: StorageRoot): StorageRoot {
   if (v < 5) {
     Object.entries(raw.months ?? {}).forEach(([ym, md]) => {
       const d = daysInMonth(ym)
-      const safeDays = d >= 1 && d <= 31 ? d : 30
-      if (!md.mood)  md.mood  = Array(safeDays).fill(0) as number[]
+      const n = d >= 1 && d <= 31 ? d : 30
+      if (!md.mood)  md.mood  = Array(n).fill(0) as number[]
       if (!md.notes) md.notes = {}
     })
     raw.schema_version = 5
@@ -97,7 +91,11 @@ function loadStorage(): StorageRoot {
   return { months: {}, schema_version: SCHEMA_VERSION }
 }
 
-function persist(data: AppData, heightCm: number, measurements: Record<string, { waist: number; hip: number }>) {
+function persist(
+  data: AppData,
+  heightCm: number,
+  measurements: Record<string, { waist: number; hip: number }>
+) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify({
     schema_version: SCHEMA_VERSION,
     months: data.months,
@@ -106,18 +104,24 @@ function persist(data: AppData, heightCm: number, measurements: Record<string, {
   }))
 }
 
-// Debounce для отправки на сервер
 let syncTimer: ReturnType<typeof setTimeout> | null = null
-function scheduleSync(data: AppData, heightCm: number, measurements: Record<string, { waist: number; hip: number }>) {
+function scheduleSync(
+  data: AppData,
+  heightCm: number,
+  measurements: Record<string, { waist: number; hip: number }>
+) {
   if (!isLoggedIn()) return
   if (syncTimer) clearTimeout(syncTimer)
   syncTimer = setTimeout(() => {
-    const payload = JSON.stringify({ schema_version: SCHEMA_VERSION, months: data.months, heightCm, measurements })
+    const payload = JSON.stringify({
+      schema_version: SCHEMA_VERSION,
+      months: data.months,
+      heightCm,
+      measurements,
+    })
     saveData(payload).catch(() => { /* тихая ошибка */ })
   }, 2000)
 }
-
-// ── Типы ──────────────────────────────────────────────────────────────────────
 
 interface DataStore {
   data:         AppData
@@ -144,13 +148,9 @@ interface DataStore {
   setMood:     (day: number, score: number, note: string, ym: string) => void
 }
 
-// ── Инициализация ─────────────────────────────────────────────────────────────
-
 const stored  = loadStorage()
 const initData: AppData = { months: stored.months ?? {}, schema_version: SCHEMA_VERSION }
 const initNow = new Date()
-
-// ── Store ─────────────────────────────────────────────────────────────────────
 
 export const useDataStore = create<DataStore>((set, get) => ({
   data:         initData,
@@ -166,17 +166,36 @@ export const useDataStore = create<DataStore>((set, get) => ({
     set({ syncing: true })
     try {
       const payload = await loadData()
-      if (!payload || payload === '{}') return
-      const remote = migrate(JSON.parse(payload) as StorageRoot)
-      const newData: AppData = { months: remote.months ?? {}, schema_version: SCHEMA_VERSION }
-      persist(newData, remote.heightCm ?? 0, remote.measurements ?? {})
-      set({
-        data: newData,
-        allMonths: newData.months,
-        heightCm: remote.heightCm ?? 0,
-        measurements: remote.measurements ?? {},
-      })
-    } catch { /* тихая ошибка */ } finally {
+      if (!payload) return
+
+      let remote: StorageRoot
+      try { remote = JSON.parse(payload) as StorageRoot }
+      catch { return }
+
+      // Если сервер пустой — отправляем туда локальные данные
+      const hasRemote = remote.months && Object.keys(remote.months).length > 0
+      if (!hasRemote) {
+        const s = get()
+        saveData(JSON.stringify({
+          schema_version: SCHEMA_VERSION,
+          months: s.data.months,
+          heightCm: s.heightCm,
+          measurements: s.measurements,
+        })).catch(() => { /* тихая */ })
+        return
+      }
+
+      // Сервер не пустой — мержим (серверные месяцы поверх локальных)
+      remote = migrate(remote)
+      const local = get()
+      const mergedMonths = { ...local.data.months, ...remote.months }
+      const newData: AppData = { months: mergedMonths, schema_version: SCHEMA_VERSION }
+      const newHeight       = remote.heightCm      ?? local.heightCm
+      const newMeasurements = remote.measurements  ?? local.measurements
+
+      persist(newData, newHeight, newMeasurements)
+      set({ data: newData, allMonths: newData.months, heightCm: newHeight, measurements: newMeasurements })
+    } catch { /* тихая */ } finally {
       set({ syncing: false })
     }
   },
@@ -232,12 +251,12 @@ export const useDataStore = create<DataStore>((set, get) => ({
     const ym = monthKey(currentYear, currentMonth)
     set(state => {
       const month = state.data.months[ym] ?? createEmptyMonth(ym)
-      const d     = daysInMonth(ym)
-      const safeDays = d >= 1 && d <= 31 ? d : 30
+      const d = daysInMonth(ym)
+      const n = d >= 1 && d <= 31 ? d : 30
       const updated: MonthData = {
         ...month,
         habits:     [...month.habits, name],
-        data:       { ...month.data,       [name]: Array(safeDays).fill(0) as number[] },
+        data:       { ...month.data,       [name]: Array(n).fill(0) as number[] },
         icons:      { ...month.icons,      [name]: icon },
         categories: { ...month.categories, [name]: category },
         goals:      { ...month.goals,      [name]: goal },
@@ -270,8 +289,7 @@ export const useDataStore = create<DataStore>((set, get) => ({
 
   toggleHabit: (habit, day, value, ym) => {
     set(state => {
-      const month = state.data.months[ym]
-      if (!month) return state
+      const month = state.data.months[ym] ?? createEmptyMonth(ym)
       const vals = [...(month.data[habit] ?? [])]; vals[day] = value
       const newData: AppData = {
         ...state.data,
@@ -283,12 +301,17 @@ export const useDataStore = create<DataStore>((set, get) => ({
     })
   },
 
+  // ── Сон / Вес / Настроение — автоматически создают месяц ────────────────
+
   setSleep: (day, value, ym) => {
     set(state => {
-      const month = state.data.months[ym]
-      if (!month) return state
-      const sleep = [...month.sleep]; sleep[day] = value
-      const newData: AppData = { ...state.data, months: { ...state.data.months, [ym]: { ...month, sleep } } }
+      const month = state.data.months[ym] ?? createEmptyMonth(ym)  // <- ключевое исправление
+      const sleep = [...month.sleep]
+      sleep[day] = value
+      const newData: AppData = {
+        ...state.data,
+        months: { ...state.data.months, [ym]: { ...month, sleep } },
+      }
       persist(newData, state.heightCm, state.measurements)
       scheduleSync(newData, state.heightCm, state.measurements)
       return { data: newData, allMonths: newData.months }
@@ -297,10 +320,13 @@ export const useDataStore = create<DataStore>((set, get) => ({
 
   setWeight: (day, value, ym) => {
     set(state => {
-      const month = state.data.months[ym]
-      if (!month) return state
-      const weight = [...month.weight]; weight[day] = value
-      const newData: AppData = { ...state.data, months: { ...state.data.months, [ym]: { ...month, weight } } }
+      const month = state.data.months[ym] ?? createEmptyMonth(ym)  // <- ключевое исправление
+      const weight = [...month.weight]
+      weight[day] = value
+      const newData: AppData = {
+        ...state.data,
+        months: { ...state.data.months, [ym]: { ...month, weight } },
+      }
       persist(newData, state.heightCm, state.measurements)
       scheduleSync(newData, state.heightCm, state.measurements)
       return { data: newData, allMonths: newData.months }
@@ -309,11 +335,13 @@ export const useDataStore = create<DataStore>((set, get) => ({
 
   setMood: (day, score, note, ym) => {
     set(state => {
-      const month = state.data.months[ym]
-      if (!month) return state
+      const month = state.data.months[ym] ?? createEmptyMonth(ym)  // <- ключевое исправление
       const mood  = [...month.mood]; mood[day] = score
       const notes = { ...month.notes, [String(day)]: note }
-      const newData: AppData = { ...state.data, months: { ...state.data.months, [ym]: { ...month, mood, notes } } }
+      const newData: AppData = {
+        ...state.data,
+        months: { ...state.data.months, [ym]: { ...month, mood, notes } },
+      }
       persist(newData, state.heightCm, state.measurements)
       scheduleSync(newData, state.heightCm, state.measurements)
       return { data: newData, allMonths: newData.months }
