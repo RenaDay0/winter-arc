@@ -20,7 +20,7 @@ def register(data: schemas.UserRegister, db: Session = Depends(get_db)):
     db.add(user)
     db.commit()
     db.refresh(user)
-    token = create_token({"sub": user.id})
+    token = create_token(user.id)  # передаём int напрямую
     return {"access_token": token, "token_type": "bearer"}
 
 @router.post("/login", response_model=schemas.Token)
@@ -28,7 +28,7 @@ def login(data: schemas.UserLogin, db: Session = Depends(get_db)):
     user = db.query(models.User).filter(models.User.email == data.email).first()
     if not user or not verify_password(data.password, user.password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
-    token = create_token({"sub": user.id})
+    token = create_token(user.id)  # передаём int напрямую
     return {"access_token": token, "token_type": "bearer"}
 
 @router.get("/me")
