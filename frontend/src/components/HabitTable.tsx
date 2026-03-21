@@ -1,16 +1,6 @@
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { C } from '../styles/theme'
 import { useDataStore, daysInMonth } from '../store/dataStore'
-
-const CAT_COLORS: Record<string, string> = {
-  'Здоровье': '#30D158',
-  'Спорт': '#FF9F0A',
-  'Саморазвитие': '#BF5AF2',
-  'Питание': '#FF453A',
-  'Сон': '#0A84FF',
-  'Продуктивность': '#0A84FF',
-  'Другое': '#636366',
-}
 
 function isToday(year: number, month: number, day: number): boolean {
   const now = new Date()
@@ -34,18 +24,16 @@ const noSpinnerStyle = `
   input[type=number] { -moz-appearance: textfield; }
 `
 
+// ── Ячейки ────────────────────────────────────────────────────────────────────
+
 function SleepCell({ value, onChange }: { value: number; onChange: (v: number) => void }) {
   const [editing, setEditing] = useState(false)
-  const [local, setLocal] = useState('')
-  const handleOpen = () => { setLocal(value > 0 ? String(value) : ''); setEditing(true) }
-  const handleSave = (val: string) => { const n = parseFloat(val); onChange(isNaN(n) ? 0 : n); setEditing(false) }
   if (editing) return (
     <input autoFocus type="number" min={0} max={24} step={0.5}
-      value={local}
-      onChange={e => setLocal(e.target.value)}
-      onBlur={e => handleSave(e.target.value)}
+      defaultValue={value || ''}
+      onBlur={e  => { onChange(parseFloat(e.target.value) || 0); setEditing(false) }}
       onKeyDown={e => {
-        if (e.key === 'Enter')  handleSave((e.target as HTMLInputElement).value)
+        if (e.key === 'Enter')  { onChange(parseFloat((e.target as HTMLInputElement).value) || 0); setEditing(false) }
         if (e.key === 'Escape') setEditing(false)
       }}
       style={{ width: CELL - 4, height: 34, background: C.BG, border: `1.5px solid ${C.ACCENT}`,
@@ -54,7 +42,7 @@ function SleepCell({ value, onChange }: { value: number; onChange: (v: number) =
   const bg    = value >= 7 ? C.SUCCESS : value > 0 ? C.WARNING : C.CARD
   const color = value >= 7 ? C.SUCCESS : value > 0 ? C.WARNING : C.SECONDARY
   return (
-    <div onClick={handleOpen} style={{
+    <div onClick={() => setEditing(true)} style={{
       width: CELL - 4, height: 34, margin: '0 auto', borderRadius: 6,
       background: value > 0 ? bg + '33' : C.CARD, border: `1px solid ${value > 0 ? bg : C.BORDER}`,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -67,23 +55,19 @@ function SleepCell({ value, onChange }: { value: number; onChange: (v: number) =
 
 function WeightCell({ value, onChange }: { value: number; onChange: (v: number) => void }) {
   const [editing, setEditing] = useState(false)
-  const [local, setLocal] = useState('')
-  const handleOpen = () => { setLocal(value > 0 ? String(value) : ''); setEditing(true) }
-  const handleSave = (val: string) => { const n = parseFloat(val); onChange(isNaN(n) ? 0 : n); setEditing(false) }
   if (editing) return (
     <input autoFocus type="number" min={0} step={0.1}
-      value={local}
-      onChange={e => setLocal(e.target.value)}
-      onBlur={e => handleSave(e.target.value)}
+      defaultValue={value || ''}
+      onBlur={e  => { onChange(parseFloat(e.target.value) || 0); setEditing(false) }}
       onKeyDown={e => {
-        if (e.key === 'Enter')  handleSave((e.target as HTMLInputElement).value)
+        if (e.key === 'Enter')  { onChange(parseFloat((e.target as HTMLInputElement).value) || 0); setEditing(false) }
         if (e.key === 'Escape') setEditing(false)
       }}
       style={{ width: CELL - 4, height: 34, background: C.BG, border: `1.5px solid ${C.ACCENT}`,
         borderRadius: 6, color: C.TEXT, fontSize: 12, textAlign: 'center', outline: 'none', padding: 0 }} />
   )
   return (
-    <div onClick={handleOpen} style={{
+    <div onClick={() => setEditing(true)} style={{
       width: CELL - 4, height: 34, margin: '0 auto', borderRadius: 6,
       background: value > 0 ? C.SUCCESS + '33' : C.CARD, border: `1px solid ${value > 0 ? C.SUCCESS : C.BORDER}`,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -181,6 +165,8 @@ function ToggleCell({ done, onClick }: { done: boolean; onClick: () => void }) {
   )
 }
 
+// ── Главный компонент ─────────────────────────────────────────────────────────
+
 export default function HabitTable({ ym }: { ym: string }) {
   const store = useDataStore()
   const { toggleHabit, setSleep, setWeight, setMood, deleteHabit } = store
@@ -221,7 +207,7 @@ export default function HabitTable({ ym }: { ym: string }) {
   const tdBase: React.CSSProperties = { borderBottom: `1px solid ${C.BORDER}`, textAlign: 'center', padding: '2px 1px' }
   const stickyLeft: React.CSSProperties = { position: 'sticky', left: 0, zIndex: 2 }
 
-  const TODAY_BORDER_C = 'rgba(255,255,255,0.32)'
+  // Выделение сегодняшнего дня — рамка без фона
   const TODAY_TEXT     = '#FFFFFF'
 
   return (
@@ -248,10 +234,7 @@ export default function HabitTable({ ym }: { ym: string }) {
                 <th key={d} style={{
                   width: CELL, minWidth: CELL, textAlign: 'center', padding: '4px 0', fontWeight: 400,
                   background: C.BG2,
-                  borderTop:    today ? `1.5px solid ${TODAY_BORDER_C}` : undefined,
                   borderBottom: `1px solid ${C.BORDER}`,
-                  borderLeft:   today ? `1.5px solid ${TODAY_BORDER_C}` : undefined,
-                  borderRight:  today ? `1.5px solid ${TODAY_BORDER_C}` : undefined,
                 }}>
                   <div style={{ fontSize: 11, color: isWE ? C.WARNING : C.SECONDARY, lineHeight: 1.3 }}>{DOW[dow]}</div>
                   <div style={{ fontSize: 14, fontWeight: today ? 700 : 400, color: today ? TODAY_TEXT : C.TEXT }}>{d}</div>
@@ -262,6 +245,7 @@ export default function HabitTable({ ym }: { ym: string }) {
         </thead>
 
         <tbody>
+          {/* Сон */}
           <tr>
             <td style={{ ...stickyLeft, background: C.BG2, ...tdBase, padding: '5px 14px' }}>
               <span style={{ color: C.ACCENT, fontWeight: 600, fontSize: 14 }}>😴 Сон</span>
@@ -269,15 +253,14 @@ export default function HabitTable({ ym }: { ym: string }) {
             {cols.map((_, i) => {
               const today = isToday(y, m, i+1)
               return (
-                <td key={i} style={{ ...tdBase,
-                  borderLeft:  today ? `1.5px solid ${TODAY_BORDER_C}` : undefined,
-                  borderRight: today ? `1.5px solid ${TODAY_BORDER_C}` : undefined }}>
+                <td key={i} style={{ ...tdBase, }}>
                   <SleepCell value={md.sleep[i] ?? 0} onChange={v => setSleep(i, v, ym)} />
                 </td>
               )
             })}
           </tr>
 
+          {/* Вес */}
           <tr>
             <td style={{ ...stickyLeft, background: C.BG2, ...tdBase, padding: '5px 14px' }}>
               <span style={{ color: C.SUCCESS, fontWeight: 600, fontSize: 14 }}>⚖️ Вес(кг)</span>
@@ -285,15 +268,14 @@ export default function HabitTable({ ym }: { ym: string }) {
             {cols.map((_, i) => {
               const today = isToday(y, m, i+1)
               return (
-                <td key={i} style={{ ...tdBase,
-                  borderLeft:  today ? `1.5px solid ${TODAY_BORDER_C}` : undefined,
-                  borderRight: today ? `1.5px solid ${TODAY_BORDER_C}` : undefined }}>
+                <td key={i} style={{ ...tdBase, }}>
                   <WeightCell value={md.weight[i] ?? 0} onChange={v => setWeight(i, v, ym)} />
                 </td>
               )
             })}
           </tr>
 
+          {/* Оценка дня */}
           <tr>
             <td style={{ ...stickyLeft, background: C.BG2, ...tdBase, padding: '5px 14px' }}>
               <span style={{ color: '#BF5AF2', fontWeight: 600, fontSize: 14 }}>⭐ День</span>
@@ -301,9 +283,7 @@ export default function HabitTable({ ym }: { ym: string }) {
             {cols.map((_, i) => {
               const today = isToday(y, m, i+1)
               return (
-                <td key={i} data-mood-popup style={{ ...tdBase,
-                  borderLeft:  today ? `1.5px solid ${TODAY_BORDER_C}` : undefined,
-                  borderRight: today ? `1.5px solid ${TODAY_BORDER_C}` : undefined }}>
+                <td key={i} data-mood-popup style={{ ...tdBase, }}>
                   <MoodCell
                     score={md.mood[i] ?? 0}
                     note={md.notes[String(i)] ?? ''}
@@ -319,6 +299,7 @@ export default function HabitTable({ ym }: { ym: string }) {
 
           <tr><td colSpan={days + 1} style={{ height: 6, background: C.BG }} /></tr>
 
+          {/* Привычки */}
           {md.habits.length === 0 ? (
             <tr>
               <td colSpan={days + 1} style={{ padding: '40px 0', textAlign: 'center', color: C.SECONDARY, fontSize: 14 }}>
@@ -327,7 +308,7 @@ export default function HabitTable({ ym }: { ym: string }) {
             </tr>
           ) : (
             catOrder.flatMap(cat => {
-              const catColor = CAT_COLORS[cat] ?? C.SECONDARY
+              const catColor = C.CATEGORIES[cat] ?? C.SECONDARY
               return [
                 <tr key={`sep-${cat}`}>
                   <td colSpan={days + 1} style={{ background: C.BG, padding: '3px 14px', borderBottom: `1px solid ${C.BORDER}` }}>
@@ -367,8 +348,6 @@ export default function HabitTable({ ym }: { ym: string }) {
                         return (
                           <td key={i} style={{
                             ...tdBase,
-                            borderLeft:  today ? `1.5px solid ${TODAY_BORDER_C}` : undefined,
-                            borderRight: today ? `1.5px solid ${TODAY_BORDER_C}` : undefined,
                           }}>
                             {goal.type === 'numeric' ? (
                               <NumericHabitCell value={val} target={goal.target ?? 1} onChange={v => toggleHabit(habit, i, v, ym)} />
@@ -385,6 +364,7 @@ export default function HabitTable({ ym }: { ym: string }) {
             })
           )}
 
+          {/* Итого */}
           {md.habits.length > 0 && (
             <tr>
               <td style={{ ...stickyLeft, background: C.BG2, ...tdBase, padding: '5px 14px' }}>
@@ -399,9 +379,7 @@ export default function HabitTable({ ym }: { ym: string }) {
                 const color = pct >= 0.8 ? C.SUCCESS : pct >= 0.5 ? C.WARNING : pct > 0 ? C.SECONDARY : C.BORDER
                 return (
                   <td key={i} style={{ ...tdBase, background: C.BG2,
-                    borderLeft:   today ? `1.5px solid ${TODAY_BORDER_C}` : undefined,
-                    borderRight:  today ? `1.5px solid ${TODAY_BORDER_C}` : undefined,
-                    borderBottom: today ? `1.5px solid ${TODAY_BORDER_C}` : `1px solid ${C.BORDER}`,
+                    borderBottom: `1px solid ${C.BORDER}`,
                   }}>
                     <span style={{ fontSize: 11, color }}>{done}/{md.habits.length}</span>
                   </td>
